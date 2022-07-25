@@ -37,13 +37,38 @@ jobs:
           repository: HydrasCo/spilo
           token: ${{ secrets.GH_TOKEN }}
           path: spilo
-      - name: Run build
+      - name: Set versions
         run: |
-          cd ./Hydras && HYDRAS_SHA=$(git rev-parse --short HEAD) && cd ../
-          cd ./citus && COLUMNAR_SHA=$(git rev-parse --short HEAD) && cd ../
-          cd ./spilo && SPILO_SHA=$(git rev-parse --short HEAD) && cd ../
-
-          TAG=${SPILO_SHA}_${COLUMNAR_SHA}_${HYDRAS_SHA} 
-          echo "Building Hydras Spilo: TAG=${TAG} HYDRAS_SHA=${HYDRAS_SHA} COLUMNAR_SHA=${COLUMNAR_SHA} SPILO_SHA=${SPILO_SHA}"
-          cd ./spilo-build
-          TAG=${TAG} SPILO_REPO=011789831835.dkr.ecr.us-east-1.amazonaws.com/spilo make
+          cd ./Hydras && echo "HYDRAS_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV && cd ../
+          cd ./citus && echo "COLUMNAR_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV && cd ../
+          cd ./spilo && echo "SPILO_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV && cd ../
+          echo "TAG=${SPILO_SHA}_${COLUMNAR_SHA}_${HYDRAS_SHA}" >> $GITHUB_ENV
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Build Hydra
+        uses: docker/build-push-action@v3
+        with:
+          context: ./Hydras
+          push: false
+          tags: hydra/hydra:${{ env.TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build Columnar
+        uses: docker/build-push-action@v3
+        with:
+          context: ./citus
+          push: false
+          tags: hydra/columnar:${{ env.TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build Spilo
+        uses: docker/build-push-action@v3
+        with:
+          context: ./spilo/postgres-appliance
+          push: false
+          tags: 011789831835.dkr.ecr.us-east-1.amazonaws.com/spilo:${{ env.TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            HYDRA_EXT_REPO=hydra/hydra:${{ env.TAG }}
+            COLUMNAR_EXT_REPO=hydra/columnar:${{ env.TAG }}
