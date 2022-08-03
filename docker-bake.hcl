@@ -17,8 +17,7 @@ group "default" {
 target "hydra-all" {
   dockerfile = "Dockerfile.all"
   contexts = {
-    spilobase = "target:spilo"
-    columnar_ext = "target:columnar_ext"
+    hydrabase = "target:hydra"
     hydra_ext = "target:hydra_ext"
   }
   tags = ["${HYDRA_ALL_REPO}:${TAG}"]
